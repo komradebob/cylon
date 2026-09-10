@@ -7,20 +7,43 @@
 
 #define S
 
-#ifdef UNO
+#define OAK
+#define INVERT
+
+#if defined(UNO)
+
 #define CLOCK_PIN 12
 #define DATA_OUT 11
 #define PL_PIN 10
 #define DATA_IN 9
+
+#elif defined(ESP32A)
+
+#define CLOCK_PIN 4			// Output
+#define DATA_OUT 13			// Output
+#define PL_PIN 5			// Output
+#define DATA_IN 12			// INPUT
+
+//#define PWM_PIN 14			// Output
+
+#elif defined(OAK)
+
+#define CLOCK_PIN P2			// Output P2
+#define DATA_OUT P10			// Output P10
+#define PL_PIN P1			// Output P1
+#define DATA_IN P5			// INPUT P5
+
 #else                // digispark
+
 #define CLOCK_PIN 0
 #define DATA_OUT 1
 #define PL_PIN 2
 #define DATA_IN 5
 #define PWM_PIN 4
+
 #endif
 
-#define DEBUG 0
+//#define DEBUG 0
 
 unsigned int ginterval;
 
@@ -40,8 +63,13 @@ unsigned char get_keys()
 {
  unsigned char c,i;
  
+#ifdef INVERT
+  digitalWrite(PL_PIN,!LOW);    // toggle the Parallel Load pin
+  digitalWrite(PL_PIN,!HIGH);
+#else
   digitalWrite(PL_PIN,LOW);    // toggle the Parallel Load pin
   digitalWrite(PL_PIN,HIGH);
+#endif
   c=digitalRead(DATA_IN);      // read the first data bit
   for(i=0;i<7;i++) {           // clock the register 7 more times to read the rest
     c = c<<1;                  // shift c
@@ -56,25 +84,43 @@ unsigned char get_keys()
 void start_bit()
 {
 
+#ifdef INVERT
+  digitalWrite(PL_PIN,!LOW);
+  digitalWrite(PL_PIN,!HIGH);
+#else
   digitalWrite(PL_PIN,LOW);
   digitalWrite(PL_PIN,HIGH);
+#endif
   sendOne();
 }
   
 //                        Send a one down the line. No read.
 void sendOne()
 {
+#ifdef INVERT
+    digitalWrite(DATA_OUT, !HIGH);
+    digitalWrite(CLOCK_PIN, !HIGH);
+    digitalWrite(CLOCK_PIN, !LOW);
+#else
+
     digitalWrite(DATA_OUT, HIGH);
     digitalWrite(CLOCK_PIN, HIGH);
     digitalWrite(CLOCK_PIN, LOW);
+#endif
 }
 
 //                       Send a zero down the line. No read.
 void sendZero()
 {
+#ifdef INVERT
+    digitalWrite(DATA_OUT, !LOW);
+    digitalWrite(CLOCK_PIN,!HIGH);
+    digitalWrite(CLOCK_PIN,!LOW);
+#else
     digitalWrite(DATA_OUT, LOW);
     digitalWrite(CLOCK_PIN, HIGH);
     digitalWrite(CLOCK_PIN, LOW);
+#endif
 }
 
 void clear_display()    // Write all 0's to the display
@@ -132,11 +178,6 @@ int i;
 }
 
 
-
-
-
-
-
 //                            Flash the display repeat times at interval ms
 void flash_display(int repeat, int interval)
 {
@@ -160,12 +201,42 @@ void setup() {
   pinMode(CLOCK_PIN, OUTPUT);
   pinMode(DATA_OUT, OUTPUT);
   pinMode(PL_PIN,OUTPUT);
-  pinMode(DATA_IN,INPUT);
-//  Serial.begin(9600);      // open the serial port at 9600 bps:    
+  pinMode(DATA_IN,INPUT_PULLUP);
+  Serial.begin(115200);      // open the serial port at 9600 bps:    
 //  trip = 0;
   ginterval = 100;
-  flash_display(10,200);  // tell us its started
+//  flash_display(10,200);  // tell us its started
+	
+#if defined(UNO)
 
+Serial.println("UNO");
+
+#elif defined(ESP32)
+
+Serial.println("ESP");
+
+#elif defined(OAK)
+
+Serial.println("OAK");
+
+#else                // digispark
+
+Serial.println("Other");
+
+#endif
+#ifdef DEBUG
+
+	Serial.println("wiggle CLOCK");
+	wiggle(CLOCK_PIN);
+	delay(5000);
+	Serial.println("wiggle D_OUT");
+	wiggle(DATA_OUT);
+	delay(5000);
+	Serial.println("wiggle PL_PIN");
+	wiggle(PL_PIN);
+	delay(5000);
+#endif
+	Serial.println("Setup");
 }
 
 
@@ -184,6 +255,10 @@ void loop() {
 unsigned char c,dir,threekeys;
 unsigned long disp,leds;
 //unsigned int trip,interval;
+
+#ifdef DEBUG
+Serial.println("Loop Enter");
+#endif
 
 disp = 0x01;
 //if( trip >10)
@@ -257,4 +332,33 @@ while(disp < 0x8000) {
    disp = disp >> 1;
    delay(ginterval);
  }  
+}
+
+void wiggle(unsigned char pin)
+{
+char i;
+
+	for(i=0;i<8;i++) {
+#ifdef INVERT
+		digitalWrite(pin,!LOW);
+#else
+		digitalWrite(pin,LOW);
+#endif
+		Serial.println("LOW");
+		delay(10000);
+#ifdef INVERT
+		digitalWrite(pin,!HIGH);
+#else
+		digitalWrite(pin,HIGH);
+#endif
+		Serial.println("HIGH");
+		delay(10000);
+	}
+#ifdef INVERT
+		digitalWrite(pin,!LOW);
+#else
+		digitalWrite(pin,LOW);
+#endif
+
+		Serial.println("LOW");
 }
